@@ -34,36 +34,8 @@ MapEditorButton.onDrag = function(e){};
 MapEditorButton.onRelease = function(e){};
 
 function MapEditor(canvas) {
-  
-    var line = new MapEditorButton("Lines", 0, 0, buttonSize, buttonSize);
-    line.onClick = function(e) {
-        if(!this.line) {
-            this.line = new TerrainLine(new vec2(e.offsetX,e.offsetY), new vec2(e.offsetX,e.offsetY));
-            pushTerrain(this.line);
-            button.isSelected = false;
-        } else {
-            snapTo(this.line);
-            this.normal = this.line;
-            button = this.line = null;
-        }
-    };
-    line.onDrag = function(e) {
-        if(this.line) {
-           var mousePos = getMousePos(canvas, e);
-           this.line.p1edit.x = (this.line.p1.x = mousePos.x) - this.line.p1edit.w/2;
-           this.line.p1edit.y = (this.line.p1.y = mousePos.y) - this.line.p1edit.h/2;
-        }
-        if(this.normal) {
-           var mousePos = getMousePos(canvas, e);
-           this.normal.p1edit.x = (this.normal.p1.x = mousePos.x) - this.normal.p1edit.w/2;
-           this.normal.p1edit.y = (this.normal.p1.y = mousePos.y) - this.normal.p1edit.h/2;
-        }
-    };
-    line.onRelease = function(e) {
-        if(this.line && this.line.p1.x !== this.line.p0.x && this.line.p1.y !== this.line.p0.y) {
-             button = this.line = null;
-        }
-    };
+    createLineButton(canvas);
+    createEraseButton(canvas);
 
  
  
@@ -121,6 +93,70 @@ MapEditor.prototype.draw = function(ctx) {
  
 }
 
+function createLineButton(canvas) {
+    var line = new MapEditorButton("Lines", 0, 0, buttonSize, buttonSize);
+
+    line.onClick = function(e) {
+        if(!this.line && !this.normal) {
+            this.line = new TerrainLine(new vec2(e.offsetX,e.offsetY), new vec2(e.offsetX,e.offsetY));
+            pushTerrain(this.line);
+            button.isSelected = false;
+        } else if (this.line && !this.normal) {
+            snapTo(this.line);
+            
+            this.normal = this.line;
+            if(!this.normal.normal) {
+                this.normal.normal = new vec2(0,0);
+            }
+            this.line = null;
+        } else if (!this.line && this.normal) {
+            button = this.normal = null;
+        }
+    };
+    line.onDrag = function(e) {
+        if(this.line) {
+           var mousePos = getMousePos(canvas, e);
+           this.line.p1edit.x = (this.line.p1.x = mousePos.x) - this.line.p1edit.w/2;
+           this.line.p1edit.y = (this.line.p1.y = mousePos.y) - this.line.p1edit.h/2;
+        }
+        if(this.normal) {
+            var mousePos = getMousePos(canvas, e);
+            var midPoint = this.normal.p0.add(this.normal.p1).divf(2.0);
+            var surfaceVector = this.normal.p0.subtract(this.normal.p1);
+            var mouseVector = new vec2(mousePos.x, mousePos.y).subtract(midPoint);
+            var oneNormal = surfaceVector.perp().normalize();
+            if(this.normal.p0.dot(mouseVector.normalize()) > 0) {
+                 oneNormal =oneNormal.negate();
+            }
+            this.normal.normal.x =  oneNormal.x;
+            this.normal.normal.y =  oneNormal.y;
+
+        }
+    };
+    line.onRelease = function(e) {
+        if(this.line && this.line.p1.x !== this.line.p0.x && this.line.p1.y !== this.line.p0.y) {
+             if (this.line && !this.normal) {
+                snapTo(this.line);
+            
+                this.normal = this.line;
+                if(!this.normal.normal) {
+                    this.normal.normal = new vec2(0,0);
+                }
+             } 
+            this.line = null;
+
+        }
+    };
+}
+
+function createEraseButton(canvas) {
+    var erase = new MapEditorButton("Erase", 0, buttonSize + 5, buttonSize, buttonSize);
+
+    erase.onClick = function(e) {
+        console.log(collides(e.offsetX, e.offsetY));
+    };
+   
+}
 
 
 var graceSize = 20;

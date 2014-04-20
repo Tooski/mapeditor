@@ -1,4 +1,4 @@
-﻿/* 
+/* 
  * terrain.js
  * Skeleton class containing the getters physics will need from a terrain object.
  * Skeleton by Travis Drake
@@ -16,41 +16,52 @@ function TerrainSurface(point0, point1, adjacent0, adjacent1, player) {
       var wh = 10;
       this.p0edit = new MouseCollideable(this.p0.x - wh, this.p0.y - wh, wh*2, wh*2);
       this.p0edit.onDrag = function(e) {
-     
-           
+        this.x = (that.p0.x = e.offsetX) - wh;
+        this.y = (that.p0.y = e.offsetY) - wh;
+        normalDrag(that);
         if(that.adjacent0) {
             if(that.adjacent0.adjacent1 === that) {
                 that.adjacent0.p1edit.x = (that.adjacent0.p1.x = e.offsetX) - wh;
                 that.adjacent0.p1edit.y = (that.adjacent0.p1.y = e.offsetY) - wh;
+                normalDrag(that.adjacent0);
             } else if (that.adjacent0.adjacent0 === that) {
                 that.adjacent0.p0edit.x = (that.adjacent0.p0.x = e.offsetX) - wh;
                 that.adjacent0.p0edit.y = (that.adjacent0.p0.y = e.offsetY) - wh;
+                normalDrag(that.adjacent0);
             }
         }
-           this.x = (that.p0.x = e.offsetX) - wh;
-           this.y = (that.p0.y = e.offsetY) - wh;
       };
       this.p0edit.onRelease = function(e) {
           snapTo(that);
-      }
+      };
       this.p1edit = new MouseCollideable(this.p1.x - wh, this.p1.y - wh, wh*2, wh*2);
       this.p1edit.onDrag = function(e) {
-           
+        this.x = (that.p1.x = e.offsetX) - wh;
+        this.y = (that.p1.y = e.offsetY) - wh;
+        normalDrag(that);
         if(that.adjacent1) {
             if(that.adjacent1.adjacent1 === that) {
                 that.adjacent1.p1edit.x = (that.adjacent1.p1.x = e.offsetX) - wh;
                 that.adjacent1.p1edit.y = (that.adjacent1.p1.y = e.offsetY) - wh;
+                normalDrag(that.adjacent1);
             } else if (that.adjacent1.adjacent0 === that) {
                 that.adjacent1.p0edit.x = (that.adjacent1.p0.x = e.offsetX) - wh;
                 that.adjacent1.p0edit.y = (that.adjacent1.p0.y = e.offsetY) - wh;
+                normalDrag(that.adjacent1);
             }
         }
-        this.x = (that.p1.x = e.offsetX) - wh;
-        this.y = (that.p1.y = e.offsetY) - wh;
+   
       };
       this.p1edit.onRelease = function(e) {
           snapTo(that);
+      };
+     
+      this.normalPosVec = new vec2(this.p0.x, this.p0.y);
+      this.normalPosCol = new MouseCollideable(this.p0.x - wh, this.p0.y - wh, wh*2, wh*2);
+      this.normalPosCol.onClick = function(e) {
+          console.log("test");
       }
+
   }
   
   this.adjacent0 = adjacent0;                         // THIS IS A LINK TO THE TerrainSurface CONNECTING AT p0. NULL IF p0 CONNECTS TO NOTHING.
@@ -59,6 +70,19 @@ function TerrainSurface(point0, point1, adjacent0, adjacent1, player) {
     this.getNormalAt = function (ballLocation) { };     // ballLocation is simple where the ball currently is, for which we are trying to obtain the normal applicable to the ball. 
   this.getSurfaceAt = function (ballLocation) { };    // Gets a normalized surface vector.
 }
+
+
+function normalDrag(terrain) {
+    if(terrain.normal) {
+        var oneNormal = terrain.p0.subtract(terrain.p1).perp().normalize();
+        if(oneNormal.dot(terrain.normal) < 0) {
+             oneNormal = oneNormal.negate();
+        }
+        terrain.normal.x =  oneNormal.x;
+        terrain.normal.y =  oneNormal.y;
+    }  
+}
+
 TerrainSurface.prototype = new Collideable();         // Establishes this as a child of Collideable.
 TerrainSurface.prototype.constructor = TerrainSurface;// Establishes this as having its own constructor.
 
@@ -71,9 +95,6 @@ TerrainSurface.prototype.constructor = TerrainSurface;// Establishes this as hav
 function TerrainLine(point0, point1, player, adjacent0, adjacent1, normal) {  
   TerrainSurface.apply(this, [point0, point1, adjacent0, adjacent1,player]); // Sets this up as a child of TerrainSurface and initializes TerrainSurface's fields.
   this.normal = normal  ;//.normalize();
-  if(!this.normal) {
-      this.normal = new vec2(0,0);
-  }
   
 }
 TerrainLine.prototype = new TerrainSurface();      //Establishes this as a child of TerrainSurface.
@@ -92,7 +113,6 @@ TerrainLine.prototype.collidesWith = function (point, radius ,ctx) { // OVERRIDE
   var vAB = pB.subtract(pA);     // vector from A to B
   var vAC = pC.subtract(pA);     // vector from A to the ball
   var vBC = pC.subtract(pB);     // vector from B to the ball
-  //console.log(pA + " " + pB + " " + pC);
   var vAD = projectVec2(vAC, vAB); //project the vector to the ball onto the surface.
   var pD = pA.add(vAD);            // find the perpendicular intersect of the surface.
   var vCD = pC.subtract(pD);       // find the vector from ball to the perpendicular intersection.
@@ -152,26 +172,39 @@ TerrainLine.prototype.draw = function(ctx) {
     
     ctx.stroke();
     if(editMode) {
-  
-      ctx.beginPath();
-      ctx.arc(this.p0.x  , this.p0.y , 10, 0, 2 * Math.PI, false);
-      ctx.fillStyle = 'green';
-      ctx.fill();
-      ctx.stroke();
-      
-      ctx.beginPath();
-      ctx.arc(this.p1.x  , this.p1.y , 10, 0, 2 * Math.PI, false);
-      ctx.fillStyle = 'red';
-      ctx.fill();
-      ctx.stroke();
-      
-      if(this.normal) {
         ctx.beginPath();
-        ctx.arc(this.normal.x  , this.normal.y , 10, 0, 2 * Math.PI, false);
-        ctx.fillStyle = 'orange';
+        ctx.arc(this.p0.x  , this.p0.y , 10, 0, 2 * Math.PI, false);
+        ctx.fillStyle = 'green';
         ctx.fill();
         ctx.stroke();
-      }
+
+        ctx.beginPath();
+        ctx.arc(this.p1.x  , this.p1.y , 10, 0, 2 * Math.PI, false);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+        ctx.stroke();
+
+        if(this.normal) {
+          
+            var midPoint = this.p0.add(this.p1).divf(2.0);
+            
+            
+            this.normalPosVec = midPoint.add(this.normal.multf(20));
+            
+            this.normalPosCol.x = this.normalPosVec.x - this.normalPosCol.w/2;
+            this.normalPosCol.y = this.normalPosVec.y - this.normalPosCol.h/2;
+
+            ctx.moveTo(midPoint.x  , midPoint.y  );
+            ctx.lineTo(this.normalPosVec.x  , this.normalPosVec.y  );
+            ctx.stroke();
+            ctx.beginPath();
+
+            ctx.arc(this.normalPosVec.x  , this.normalPosVec.y , this.normalPosCol.w/2, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'orange';
+            ctx.fill();
+            ctx.stroke();
+        
+        }
     }
     
     //this.collidesWith(this.player.position,25, ctx);
