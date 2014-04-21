@@ -1,7 +1,7 @@
 
 var buttonSize = 75;
 
-this.terrainList = [];
+var terrainList = [];
 
 var button;
 var buttonList = [];
@@ -16,11 +16,16 @@ function MapEditorButton(name, x, y, w, h) {
     this.w = w;
     this.h = h;
     this.isSelected = false;
-    
+
     var that = this;
-    new MouseCollideable(this.x,this.y,this.w,this.h).onClick = function(e) {
-        that.isSelected = button ? !(button.isSelected = false) : true;
-        button = that;
+    new MouseCollideable("button", this.x,this.y,this.w,this.h).onClick = function(e) {
+        if(button !== that) {
+            that.isSelected = button ? !(button.isSelected = false) : true;
+            button = that;
+        } else {
+            that.isSelected = false;
+            button = null;
+        }
     };
     if(buttonListStart.x > this.x) buttonListStart.x = this.x;
     if(buttonListEnd.x < this.x + this.w) buttonListEnd.x = this.x + this.w;
@@ -33,18 +38,19 @@ MapEditorButton.onClick = function(e){};
 MapEditorButton.onDrag = function(e){};
 MapEditorButton.onRelease = function(e){};
 
-function MapEditor(canvas) {
-    createLineButton(canvas);
-    createEraseButton(canvas);
+function MapEditor() {
+    createLineButton();
+    createEraseButton();
+    createLoadButton();
+    createSaveButton();
 
- 
- 
-    
-    var t1 = new TerrainLine(new vec2(200,200+50), new vec2(200+250,200+150));
-    var t2 = new TerrainLine(new vec2(200,200+50), new vec2(200+250,200-150));
-    
-    pushTerrain(t1);
-    pushTerrain(t2);
+
+
+//    var t1 = new TerrainLine(new vec2(200,200+50), new vec2(200+250,200+150));
+//    var t2 = new TerrainLine(new vec2(200,200+50), new vec2(200+250,200-150));
+//
+//    pushTerrain(t1);
+//    pushTerrain(t2);
 
     canvas.addEventListener('mousedown', function(e) {
         if(buttonListStart.x < e.offsetX && buttonListEnd.x > e.offsetX &&
@@ -66,10 +72,10 @@ function MapEditor(canvas) {
     canvas.addEventListener("mouseup", function(e){
         if(button && button.onRelease) button.onRelease(e);
     }, false);
-    
+
 }
 
-function getMousePos(canvas, evt) {
+function getMousePos( evt) {
         var rect = canvas.getBoundingClientRect();
         return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
       }
@@ -77,23 +83,28 @@ function getMousePos(canvas, evt) {
 MapEditor.prototype = new Entity();
 
 
-MapEditor.prototype.update = function() {
-}
+MapEditor.prototype.update = function() { };
 
 MapEditor.prototype.draw = function(ctx) {
-    
-    for(var i = 0; i < terrainList.length; i++) {
-        terrainList[i].draw(ctx);
-    }
-    
+
+    terrainList.forEach (function(ter) {
+        ter.draw(ctx);
+    });
+
     for(var i = 0; i < buttonList.length; i++) {
+
         ctx.fillStyle = buttonList[i].isSelected ? "#00FF00" : "#FF0000";
         ctx.fillRect(buttonList[i].x,buttonList[i].y, buttonList[i].w, buttonList[i].h);
+        var size = 16;
+        ctx.fillStyle = "black";
+        ctx.font = "bold "+size+"px Arial";
+        ctx.textAlign="center"; 
+        ctx.fillText(buttonList[i].name, buttonList[i].x +  buttonList[i].w/2, buttonList[i].y  + buttonList[i].h/2 + size/2);
     }
- 
-}
 
-function createLineButton(canvas) {
+};
+
+function createLineButton() {
     var line = new MapEditorButton("Lines", 0, 0, buttonSize, buttonSize);
 
     line.onClick = function(e) {
@@ -103,7 +114,7 @@ function createLineButton(canvas) {
             button.isSelected = false;
         } else if (this.line && !this.normal) {
             snapTo(this.line);
-            
+
             this.normal = this.line;
             if(!this.normal.normal) {
                 this.normal.normal = new vec2(0,0);
@@ -115,19 +126,12 @@ function createLineButton(canvas) {
     };
     line.onDrag = function(e) {
         if(this.line) {
-           var mousePos = getMousePos(canvas, e);
+           var mousePos = getMousePos(e);
            this.line.p1edit.x = (this.line.p1.x = mousePos.x) - this.line.p1edit.w/2;
            this.line.p1edit.y = (this.line.p1.y = mousePos.y) - this.line.p1edit.h/2;
         }
         if(this.normal) {
-            var mousePos = getMousePos(canvas, e);
-            var midPoint = this.normal.p0.add(this.normal.p1).divf(2.0);
-            var surfaceVector = this.normal.p0.subtract(this.normal.p1);
-            var mouseVector = new vec2(mousePos.x, mousePos.y).subtract(midPoint);
-            var oneNormal = surfaceVector.perp().normalize();
-            if(this.normal.p0.dot(mouseVector.normalize()) > 0) {
-                 oneNormal =oneNormal.negate();
-            }
+            var oneNormal = findNormalByMouse(e, this.normal);
             this.normal.normal.x =  oneNormal.x;
             this.normal.normal.y =  oneNormal.y;
 
@@ -137,7 +141,7 @@ function createLineButton(canvas) {
         if(this.line && this.line.p1.x !== this.line.p0.x && this.line.p1.y !== this.line.p0.y) {
              if (this.line && !this.normal) {
                 snapTo(this.line);
-            
+
                 this.normal = this.line;
                 if(!this.normal.normal) {
                     this.normal.normal = new vec2(0,0);
@@ -149,23 +153,77 @@ function createLineButton(canvas) {
     };
 }
 
-function createEraseButton(canvas) {
+function createEraseButton() {
     var erase = new MapEditorButton("Erase", 0, buttonSize + 5, buttonSize, buttonSize);
 
     erase.onClick = function(e) {
-        console.log(collides(e.offsetX, e.offsetY));
+        var position = new vec2(e.offsetX, e.offsetY);
+        for(var i = 0; i < terrainList.length; i++) {
+            if(terrainList[i].collidesWith(position, 10)) {
+                removeFrom(terrainList[i]);
+                terrainList.splice(i, 1);
+            }
+        }
     };
-   
+
 }
 
+function createLoadButton() {
+    var erase = new MapEditorButton("Load", 0, (buttonSize + 5) * 2, buttonSize, buttonSize);
+
+     erase.onRelease = function(e) {
+        terrainList = [];
+        var obj = JSON.parse(localStorage.getItem('terraindata'));
+        for(var i = 0; i < obj.length; i++) {
+            var ter = new TerrainLine(new vec2(obj[i].p0.x, obj[i].p0.y), new vec2(obj[i].p1.x, obj[i].p1.y));
+            ter.id = obj[i].id;
+            ter.normal = new vec2(obj[i].normal.x, obj[i].normal.y);
+            pushTerrain (ter);
+        }
+        
+
+
+        this.isSelected = button = null;
+    };
+
+}
+
+
+function createSaveButton() {
+    var save = new MapEditorButton("Save", 0, (buttonSize + 5) * 3, buttonSize, buttonSize);
+    
+    save.onRelease = function(e) {
+        var terrain = [];
+        terrainList.forEach (function(ter) {
+            
+            if(ter.adjacent0) var adj0 = ter.adjacent0.id.toString();
+            if(ter.adjacent1) var adj1 = ter.adjacent1.id.toString();
+            if(ter.normal) var norm = ter.normal;
+            terrain.push({
+                "id" : terrain.id,
+                "p0" : { "x" : ter.p0.x, "y" : ter.p0.y },
+                "p1" : { "x" : ter.p1.x, "y" : ter.p1.y },
+                "normal" : { "x" : norm.x, "y" : norm.y },
+                "adjacent0" : adj0,
+                "adjacent1" : adj1 }
+                );
+            }
+        );
+        localStorage.setItem('terraindata', JSON.stringify(terrain));
+        this.isSelected = button = null;
+
+    };
+
+}
 
 var graceSize = 20;
 
 function pushTerrain (terrain) {
-        
-    snapTo(terrain);
-    this.terrainList.push(terrain);
     
+    snapTo(terrain);
+
+    terrainList.push(terrain);
+
 }
 
 function snapTo(terrain) {
@@ -201,6 +259,28 @@ function snapTo(terrain) {
 
 }
 
+
+function removeFrom(terrain) {
+
+        if(terrain.adjacent0){
+          if(terrain.adjacent0.adjacent0 === terrain) {
+            terrain.adjacent0.adjacent0 = terrain.adjacent0 = null;
+          } else if (terrain.adjacent0.adjacent1 === terrain) {
+            terrain.adjacent0.adjacent1 = terrain.adjacent0 = null;
+          }
+        } 
+      if(terrain.adjacent1){
+          if(terrain.adjacent1.adjacent0 === terrain) {
+            terrain.adjacent1.adjacent0 = terrain.adjacent1 = null;
+          } else if (terrain.adjacent1.adjacent1 === terrain) {
+            terrain.adjacent1.adjacent1 = terrain.adjacent1 = null;
+          }
+        } 
+
+        if(terrain.p0edit) removeMouseCollideable(terrain.p0edit);
+        if(terrain.p1edit) removeMouseCollideable(terrain.p1edit);
+}
+
 function checkBounds (p1, p2) {
     return (p1.x <= p2.x + graceSize && 
            p1.x >= p2.x - graceSize && 
@@ -208,4 +288,3 @@ function checkBounds (p1, p2) {
            p1.y >= p2.y - graceSize);
 }
 
-    

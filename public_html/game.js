@@ -174,11 +174,11 @@ GameBoard.prototype.draw = function (ctx) {
 }
 
 // the "main" code begins here
-
+var canvas;
 var ASSET_MANAGER = new AssetManager();
 ASSET_MANAGER.downloadAll(function () {
     console.log("starting up da sheild");
-    var canvas = document.getElementById('gameWorld');
+    canvas = document.getElementById('gameWorld');
     var  ctx = canvas.getContext('2d');
     canvas.tabIndex = 1;
    

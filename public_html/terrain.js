@@ -7,14 +7,15 @@
 
 // TerrainSurface object is the parent class for all collideable terrain objects. Has a start point and end point (and is therefore a line or curve).
 function TerrainSurface(point0, point1, adjacent0, adjacent1, player) {
- // Collideable.apply(this);    // SET UP TerrainSurface objects' inheritance from Collideable.
+  Collideable.apply(this);    // SET UP TerrainSurface objects' inheritance from Collideable.
   var that = this;
   this.p0 = point0;                                   // p0 and p1 are either end of this TerrainSurface.
   this.p1 = point1;
   
   if(editMode) {
       var wh = 10;
-      this.p0edit = new MouseCollideable(this.p0.x - wh, this.p0.y - wh, wh*2, wh*2);
+      this.p0edit = new MouseCollideable("point", this.p0.x - wh, this.p0.y - wh, wh*2, wh*2);
+      
       this.p0edit.onDrag = function(e) {
         this.x = (that.p0.x = e.offsetX) - wh;
         this.y = (that.p0.y = e.offsetY) - wh;
@@ -34,7 +35,7 @@ function TerrainSurface(point0, point1, adjacent0, adjacent1, player) {
       this.p0edit.onRelease = function(e) {
           snapTo(that);
       };
-      this.p1edit = new MouseCollideable(this.p1.x - wh, this.p1.y - wh, wh*2, wh*2);
+      this.p1edit = new MouseCollideable("point", this.p1.x - wh, this.p1.y - wh, wh*2, wh*2);
       this.p1edit.onDrag = function(e) {
         this.x = (that.p1.x = e.offsetX) - wh;
         this.y = (that.p1.y = e.offsetY) - wh;
@@ -57,10 +58,17 @@ function TerrainSurface(point0, point1, adjacent0, adjacent1, player) {
       };
      
       this.normalPosVec = new vec2(this.p0.x, this.p0.y);
-      this.normalPosCol = new MouseCollideable(this.p0.x - wh, this.p0.y - wh, wh*2, wh*2);
-      this.normalPosCol.onClick = function(e) {
-          console.log("test");
-      }
+      this.normalPosCol = new MouseCollideable("normal", this.p0.x - wh, this.p0.y - wh, wh*2, wh*2);
+      this.normalPosCol.onDrag = function(e) {
+          if(that.normal) {
+          var point = findNormalByMouse(e, that);
+          
+
+          that.normal.x = point.x;
+          that.normal.y = point.y;
+          
+        }
+      };
 
   }
   
@@ -94,7 +102,8 @@ TerrainSurface.prototype.constructor = TerrainSurface;// Establishes this as hav
 // @param adjacents is an array of terrainObjects where adjacents[0] is connected by p0, and adjacent
 function TerrainLine(point0, point1, player, adjacent0, adjacent1, normal) {  
   TerrainSurface.apply(this, [point0, point1, adjacent0, adjacent1,player]); // Sets this up as a child of TerrainSurface and initializes TerrainSurface's fields.
-  this.normal = normal  ;//.normalize();
+
+    this.normal = normal  ;//.normalize();
   
 }
 TerrainLine.prototype = new TerrainSurface();      //Establishes this as a child of TerrainSurface.
@@ -212,3 +221,35 @@ TerrainLine.prototype.draw = function(ctx) {
 
 
 var editMode = true;
+
+function findNormalByMouse(e, line) {
+    var mousePos = getMousePos(e);
+    var midPoint = line.p0.add(line.p1).divf(2.0);
+    var surfaceVector = line.p0.subtract(line.p1);
+    var mouseVector = new vec2(mousePos.x, mousePos.y).subtract(midPoint);
+    var oneNormal = surfaceVector.perp().normalize();
+    
+    if(oneNormal.dot(mouseVector.normalize()) < 0) {
+         oneNormal =oneNormal.negate();
+    }
+    return oneNormal;
+}
+
+
+
+//var NINETY_DEG_PI = Math.PI / 2.0;    // 90 DEGREES
+//var NINETY_DEG_NEGATIVE_PI = -Math.PI / 2.0; // -90 DEGREES
+//
+//function findNormalByMouse(e, line) {
+//    var mousePos = getMousePos(e);
+//    var midPoint = line.p0.add(line.p1).divf(2.0);
+//    var surfaceVector = line.p0.subtract(line.p1);
+//    var mouseVector = new vec2(mousePos.x, mousePos.y).subtract(midPoint);
+//    var oneNormal = surfaceVector.perp().normalize();
+// var normDotMouse = oneNormal.dot(mouseVector.normalize());
+//    if(normDotMouse > NINETY_DEG_PI || normDotMouse < NINETY_DEG_NEGATIVE_PI) {
+//         oneNormal =oneNormal.negate();
+//    }
+//    return oneNormal;
+//}
+

@@ -1,7 +1,8 @@
 var mouseCollidable = [];
 
 
-function MouseCollideable(x, y, w, h) {
+function MouseCollideable(type, x, y, w, h) {
+    this.type = type;
     this.x = x || 0;
     this.y = y || 0;
     this.w = w || 0;
@@ -10,6 +11,13 @@ function MouseCollideable(x, y, w, h) {
 
 }
 
+
+function removeMouseCollideable(item) {
+    var index = mouseCollidable.indexOf(item);
+    if (index > -1) {
+        mouseCollidable.splice(index, 1);
+    }
+};
 MouseCollideable.onDrag = function(e) { };
 MouseCollideable.onClick = function(e) {  };
 MouseCollideable.onRelease = function(e) { };
